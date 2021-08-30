@@ -1,0 +1,125 @@
+diff --git a/src/core/ngx_connection.c b/src/core/ngx_connection.c
+--- a/src/core/ngx_connection.c
++++ b/src/core/ngx_connection.c
+10a11
+> #include <nginx.h>
+414a416,422
+> 	
+> 	size_t                len;
+>     struct sockaddr      *sockaddr;
+>     struct sockaddr_in   *sin;
+> #if (NGX_HAVE_INET6)
+>     struct sockaddr_in6  *sin6;
+> #endif
+479a488,515
+>             sockaddr = ls[i].sockaddr;
+> 
+>             if (ngx_process == NGX_PROCESS_WORKER) {
+> 
+>                 if (!ls[i].per_worker) {
+>                     continue;
+>                 }
+> 
+>                 sockaddr = ngx_palloc(cycle->pool, ls[i].socklen);
+>                 if (sockaddr == NULL) {
+>                     return NGX_ERROR;
+>                 }
+> 
+>                 ngx_memcpy(sockaddr, ls[i].sockaddr, ls[i].socklen);
+> 
+>                 switch (ls[i].sockaddr->sa_family) {
+> #if (NGX_HAVE_INET6)
+>                     case AF_INET6:
+>                         sin6 = (struct sockaddr_in6 *) sockaddr;
+>                         sin6->sin6_port = htons(ntohs(sin6->sin6_port) +
+>                                           ngx_worker_slot);
+>                         break;
+> #endif
+>                     default: /* AF_INET */
+>                         sin = (struct sockaddr_in *) sockaddr;
+>                         sin->sin_port = htons(ntohs(sin->sin_port) +
+>                                         ngx_worker_slot);
+>                 }
+480a517,538
+>                 len = ls[i].addr_text_max_len;
+>                 ls[i].addr_text.data = ngx_palloc(cycle->pool, len);
+> 
+>                 if (ls[i].addr_text.data == NULL) {
+>                     return NGX_ERROR;
+>                 }
+> 
+>                 len = ngx_sock_ntop(sockaddr,
+> #if (nginx_version >= 1005003)
+> 				    ls[i].socklen,
+> #endif
+> 				    ls[i].addr_text.data, len, 1);
+>                 if (len == 0) {
+>                     return NGX_ERROR;
+>                 }
+> 
+>                 ls[i].addr_text.len = len;
+> 
+>             } else if (ls[i].per_worker) {
+>                 continue;
+>             }
+> 			
+604c662
+<             if (bind(s, ls[i].sockaddr, ls[i].socklen) == -1) {
+---
+>             if (bind(s, sockaddr, ls[i].socklen) == -1) {
+
+diff --git a/src/core/ngx_connection.h b/src/core/ngx_connection.h
+--- a/src/core/ngx_connection.h
++++ b/src/core/ngx_connection.h
+59a60
+> 	unsigned            per_worker:1;
+
+diff --git a/src/http/ngx_http.c b/src/http/ngx_http.c
+--- a/src/http/ngx_http.c
++++ b/src/http/ngx_http.c
+1808a1809,1810
+> 	ls->per_worker = addr->opt.per_worker;
+> 	
+
+diff --git a/src/http/ngx_http_core_module.c b/src/http/ngx_http_core_module.c
+--- a/src/http/ngx_http_core_module.c
++++ b/src/http/ngx_http_core_module.c
+3925a3926,3930
+> 		
+>         if (ngx_strcmp(value[n].data, "per_worker") == 0) {
+>             lsopt.per_worker = 1;
+>             continue;
+>         }		
+
+diff --git a/src/http/ngx_http_core_module.h b/src/http/ngx_http_core_module.h
+--- a/src/http/ngx_http_core_module.h
++++ b/src/http/ngx_http_core_module.h
+75a76
+> 	unsigned                   per_worker:1;
+
+diff --git a/src/os/unix/ngx_process.c b/src/os/unix/ngx_process.c
+--- a/src/os/unix/ngx_process.c
++++ b/src/os/unix/ngx_process.c
+36a37
+> ngx_int_t        ngx_worker_slot;
+
+diff --git a/src/os/unix/ngx_process.h b/src/os/unix/ngx_process.h
+--- a/src/os/unix/ngx_process.h
++++ b/src/os/unix/ngx_process.h
+87a88
+> extern ngx_int_t      ngx_worker_slot;
+
+diff --git a/src/os/unix/ngx_process_cycle.c b/src/os/unix/ngx_process_cycle.c
+--- a/src/os/unix/ngx_process_cycle.c
++++ b/src/os/unix/ngx_process_cycle.c
+703a704,706
+> 	
+> 	ngx_worker_slot = worker;
+> 	
+898a902,907
+> 	
+>     if (ngx_open_listening_sockets(cycle) != NGX_OK) {
+>         ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno,
+>                       "failed to init worker listeners");
+>         exit(2);
+>     }	
