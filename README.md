@@ -1,4 +1,4 @@
-# Nginx patches
+# Nginx 补丁
 
 ## dav-copy-hardlink
 
@@ -6,7 +6,10 @@ Implements hardlinking in DAV copy instead of real copy.
 
     dav_copy_hardlink on;
 
-## per-worker-listener
+## per-worker-listener/new-per-worker-listener
+Per-worker-listener is an old version and is not applicable to the latest nginx.
+
+New-per-worker-listener is a patch that I used to solve monitoring exceptions when I was studying nginx-rtmp-module streaming. Applicable to nginx-1.21.1.
 
 Implements per worker listeners to make requests to
 certain nginx worker. This requires `accept_mutex off`;
